@@ -6,7 +6,8 @@ public class Department
     private String name;
     private String address;
 
-    public Department(int id, String name, String address) {
+    public Department(int id, String name, String address)
+    {
         this.id = id;
         this.name = name;
         this.address = address;

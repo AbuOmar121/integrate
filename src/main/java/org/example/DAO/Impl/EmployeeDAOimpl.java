@@ -1,6 +1,10 @@
 package org.example.DAO.Impl;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.example.DAO.Interfaces.EmployeeDAOI;
+import org.example.Singletons.ConfigReader;
+import org.example.Singletons.DatabaseConnection;
 import org.example.models.Employee;
 
 import java.sql.*;
@@ -9,15 +13,20 @@ import java.util.List;
 
 public class EmployeeDAOimpl implements EmployeeDAOI {
 
-    private Connection conn;
+    private static final ConfigReader properties = ConfigReader.getInstance();
 
-    public EmployeeDAOimpl(Connection conn) {
-        this.conn = conn;
+    private static final Logger logger = LogManager.getLogger(EmployeeDAOimpl.class);
+
+    private final Connection conn;
+
+
+    public EmployeeDAOimpl() {
+        this.conn = DatabaseConnection.getConnection();
     }
 
     @Override
     public void addEmployee(Employee employee) {
-        String sql = "INSERT INTO employee (E_FirstName, E_LastName, E_salary, E_status, E_result, is_read, d_id) VALUES (?, ?, ?, ?, ?, ?, ?)";
+        String sql = getString("E.add");
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, employee.getFirstName());
             ps.setString(2, employee.getLastname());
@@ -28,13 +37,13 @@ public class EmployeeDAOimpl implements EmployeeDAOI {
             ps.setInt(7, employee.getDepartmentId());
             ps.executeUpdate();
         } catch (SQLException e) {
-            e.printStackTrace();
+            logger.error("SQL Add Employee Error: {}", e.getMessage());
         }
     }
 
     @Override
     public void updateEmployee(Employee employee) {
-        String sql = "UPDATE employee SET E_FirstName = ?, E_LastName = ?, E_salary = ?, E_status = ?, E_result = ?, is_read = ?, d_id = ? WHERE e_id = ?";
+        String sql = getString("E.update");
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, employee.getFirstName());
             ps.setString(2, employee.getLastname());
@@ -46,25 +55,28 @@ public class EmployeeDAOimpl implements EmployeeDAOI {
             ps.setInt(8, employee.getId());
             ps.executeUpdate();
         } catch (SQLException e) {
-            e.printStackTrace();
+            logger.error("SQL Update Employee Error: {}", e.getMessage());
         }
     }
 
     @Override
-    public void deleteEmployee(int employeeId) {
-        String sql = "DELETE FROM employee WHERE e_id = ?";
+    public void updateEmployeeState(int id,int status,String result,boolean isRead) {
+        String sql = getString("E.updateState");
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setInt(1, employeeId);
+            ps.setInt(1, status);
+            ps.setString(2, result);
+            ps.setBoolean(3, isRead);
+            ps.setInt(4, id);
             ps.executeUpdate();
         } catch (SQLException e) {
-            e.printStackTrace();
+            logger.error("SQL Update Employee State Error: {}", e.getMessage());
         }
     }
 
     @Override
     public List<Employee> getAllEmployees() {
         List<Employee> employees = new ArrayList<>();
-        String sql = "SELECT * FROM employee";
+        String sql = getString("E.getAll");
         try (Statement stmt = conn.createStatement(); ResultSet rs = stmt.executeQuery(sql)) {
             while (rs.next()) {
                 Employee employee = new Employee(
@@ -80,14 +92,14 @@ public class EmployeeDAOimpl implements EmployeeDAOI {
                 employees.add(employee);
             }
         } catch (SQLException e) {
-            e.printStackTrace();
+            logger.error("SQL Get All Employee Error: {}", e.getMessage());
         }
         return employees;
     }
 
     @Override
     public Employee getEmployeeById(int id) {
-        String sql = "SELECT * FROM employee WHERE e_id = ?";
+        String sql = getString("E.getById");
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setInt(1, id);
             try (ResultSet rs = ps.executeQuery()) {
@@ -105,7 +117,7 @@ public class EmployeeDAOimpl implements EmployeeDAOI {
                 }
             }
         } catch (SQLException e) {
-            e.printStackTrace();
+            logger.error("SQL Get Employee By ID Error: {}", e.getMessage());
         }
         return null;
     }
@@ -113,7 +125,7 @@ public class EmployeeDAOimpl implements EmployeeDAOI {
     @Override
     public List<Employee> getEmployeesByDepartmentId(int departmentId) {
         List<Employee> employees = new ArrayList<>();
-        String sql = "SELECT * FROM employee WHERE d_id = ?";
+        String sql = getString("E.getByDepId");
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setInt(1, departmentId);
             try (ResultSet rs = ps.executeQuery()) {
@@ -131,8 +143,14 @@ public class EmployeeDAOimpl implements EmployeeDAOI {
                 }
             }
         } catch (SQLException e) {
-            e.printStackTrace();
+            logger.error("SQL Get Employees By Department ID Error: {}", e.getMessage());
         }
         return employees;
     }
+
+    public static String getString(String key)
+    {
+        return properties.getString(key);
+    }
+
 }

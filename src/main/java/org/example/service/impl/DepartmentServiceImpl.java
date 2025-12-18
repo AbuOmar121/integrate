@@ -1,41 +1,40 @@
 package org.example.service.impl;
 
+import org.example.BO.DepartmentBO;
 import org.example.DAO.Interfaces.DepartmentDAOI;
 import org.example.models.Department;
 import org.example.service.Interfaces.DepartmentServiceI;
 
 import java.util.List;
 
-public class DepartmentServiceImpl implements DepartmentServiceI {
+public class DepartmentServiceImpl implements DepartmentServiceI
+{
 
-    private DepartmentDAOI departmentDAO;
+    private final DepartmentDAOI departmentDAO;
 
-    public DepartmentServiceImpl(DepartmentDAOI departmentDAO) {
+    public DepartmentServiceImpl(DepartmentDAOI departmentDAO)
+    {
         this.departmentDAO = departmentDAO;
     }
 
     @Override
-    public void addDepartment(Department department) {
-        departmentDAO.addDepartment(department);
-    }
-
-    @Override
-    public void updateDepartment(Department department) {
-        departmentDAO.updateDepartment(department);
-    }
-
-    @Override
-    public void deleteDepartment(int departmentId) {
-        departmentDAO.deleteDepartment(departmentId);
-    }
-
-    @Override
-    public List<Department> getAllDepartments() {
+    public List<Department> getAllDepartments()
+    {
+        DepartmentBO.validateGetAll();
         return departmentDAO.getAllDepartments();
     }
 
     @Override
-    public Department getDepartmentById(int id) {
+    public Department getDepartmentById(int id)
+    {
+        DepartmentBO.validateId(id);
         return departmentDAO.getDepartmentById(id);
+    }
+
+    @Override
+    public String getDepartmentNameById(int id)
+    {
+        DepartmentBO.validateId(id);
+        return departmentDAO.getDepartmentNameById(id);
     }
 }

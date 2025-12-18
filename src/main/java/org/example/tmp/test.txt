@@ -1,0 +1,183 @@
+🎯 Status Model (Your States)
+
+We’ll use these states (as you described earlier):
+
+Code	Status
+0	NOT_READ
+1	FETCHED
+2	PROCESSING
+3	SUCCESS
+4	FAILED
+1️⃣ Update Employee model (status + result already exist ✅)
+
+We’ll reuse your fields:
+
+status → numeric state
+
+result → message
+
+isread → consumed or not
+
+No model change needed ✔
+
+2️⃣ Status Constants (Clean & Central)
+package org.example.constants;
+
+public final class EmployeeStatus {
+
+    public static final int NOT_READ = 0;
+    public static final int FETCHED = 1;
+    public static final int PROCESSING = 2;
+    public static final int SUCCESS = 3;
+    public static final int FAILED = 4;
+
+    private EmployeeStatus() {}
+}
+
+3️⃣ Client (ST) → Set FETCHED
+Employee employee = new Employee(
+        "FN_" + UUID.randomUUID().toString().substring(0, 8),
+        "LN_" + UUID.randomUUID().toString().substring(0, 8),
+        300 + Math.random() * 5000,
+        EmployeeStatus.FETCHED,
+        "Fetched from client",
+        false,
+        (i % 5) + 1
+);
+EmployeeQueue.getQueue().put(employee);
+
+4️⃣ DAO: Insert + Status Update Queries
+config.properties
+E.insert=INSERT INTO employee (first_name, last_name, salary, status, result, isread, department_id) VALUES (?, ?, ?, ?, ?, ?, ?)
+E.updateStatus=UPDATE employee SET status=?, result=?, isread=? WHERE id=?
+
+5️⃣ DAO Method: Update Status
+public void updateEmployeeStatus(int id, int status, String result, boolean isRead) {
+
+    String sql = properties.getString("E.updateStatus");
+
+    try (PreparedStatement ps = conn.prepareStatement(sql)) {
+
+        ps.setInt(1, status);
+        ps.setString(2, result);
+        ps.setBoolean(3, isRead);
+        ps.setInt(4, id);
+
+        ps.executeUpdate();
+
+    } catch (SQLException e) {
+        logger.error("SQL Update Employee Status Error: {}", e.getMessage());
+    }
+}
+
+6️⃣ MT Worker (CORE STATUS TRACKING 🔥)
+public class EmployeeWorker implements Runnable {
+
+    private static final Logger logger =
+            LogManager.getLogger(EmployeeWorker.class);
+
+    private final EmployeeDAOimpl employeeDAO = new EmployeeDAOimpl();
+
+    @Override
+    public void run() {
+
+        while (true) {
+            try {
+                Employee employee = EmployeeQueue.getQueue().take();
+
+                // PROCESSING
+                employee.setStatus(EmployeeStatus.PROCESSING);
+                employee.setResult("Processing started");
+
+                int generatedId = employeeDAO.addEmployee(employee);
+
+                // SUCCESS
+                employeeDAO.updateEmployeeStatus(
+                        generatedId,
+                        EmployeeStatus.SUCCESS,
+                        "Inserted successfully",
+                        true
+                );
+
+            } catch (Exception e) {
+
+                logger.error("Employee processing failed: {}", e.getMessage());
+            }
+        }
+    }
+}
+
+7️⃣ DAO Insert → Return Generated ID (Important)
+public int addEmployee(Employee employee) {
+
+    String sql = properties.getString("E.insert");
+
+    try (PreparedStatement ps =
+                 conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+
+        ps.setString(1, employee.getFirstName());
+        ps.setString(2, employee.getLastname());
+        ps.setDouble(3, employee.getSalary());
+        ps.setInt(4, employee.getStatus());
+        ps.setString(5, employee.getResult());
+        ps.setBoolean(6, employee.isIsread());
+        ps.setInt(7, employee.getDepartmentId());
+
+        ps.executeUpdate();
+
+        try (ResultSet rs = ps.getGeneratedKeys()) {
+            if (rs.next()) {
+                return rs.getInt(1);
+            }
+        }
+
+    } catch (SQLException e) {
+        logger.error("SQL Insert Employee Error: {}", e.getMessage());
+    }
+    return -1;
+}
+
+8️⃣ FAILED Status Handling (Important)
+
+Inside catch in worker:
+
+catch (Exception e) {
+    logger.error("Employee processing failed: {}", e.getMessage());
+
+    employeeDAO.updateEmployeeStatus(
+            employee.getId(),
+            EmployeeStatus.FAILED,
+            e.getMessage(),
+            true
+    );
+}
+
+9️⃣ Result in Database (Real Tracking)
+id	first_name	status	result	isread
+1	FN_ab12	3	Inserted successfully	true
+2	FN_xx92	4	Duplicate key	true
+✅ What You Now Have
+
+✔ End-to-end status tracking
+✔ Client → Fetch
+✔ Worker → Processing
+✔ DB → Success / Failure
+✔ Thread-safe
+✔ Configurable workers
+✔ Production-grade
+
+🚀 Next (Optional)
+
+I can add:
+
+Batch commit per worker
+
+Retry mechanism
+
+Dead-letter queue
+
+Progress monitor (% completed)
+
+REST endpoint to check status
+
+Say which one and I’ll wire it cleanly 💪
